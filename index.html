@@ -3,8 +3,16 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- 开启全屏 Web App 模式，隐藏 Safari 的顶部地址栏和底部工具栏 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <!-- 强制顶层状态栏背景为纯黑，配合页面样式 -->
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <!-- 桌面图标下方的应用名称 -->
+    <meta name="apple-mobile-web-app-title" content="iClassicTV">
+    <!-- 桌面图标 (不加 -precomposed 后缀，iOS6会自动给它加上销魂的玻璃高光和圆角) -->
+    <!-- 建议：你在同级目录放一张正方形的 apple-touch-icon.png 即可替换这个默认蓝底图标 -->
+    <link rel="apple-touch-icon" href="data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='114' height='114'%3E%3Crect width='114' height='114' fill='%23436184'/%3E%3Ctext x='57' y='75' font-family='Helvetica, sans-serif' font-size='46' font-weight='bold' fill='%23fff' text-anchor='middle'%3ETV%3C/text%3E%3C/svg%3E">
+    
     <title>IPTV Player</title>
     <style>
         /* iOS 6 全局基础样式 */
@@ -476,6 +484,37 @@
             color: #4c566c;
             text-shadow: 0 1px 0 #fff;
         }
+
+        /* 添加到主屏幕的底部引导气泡 */
+        .add-to-home-prompt {
+            position: fixed;
+            bottom: 60px; /* 悬浮在 Tab 栏上方 */
+            left: 50%;
+            margin-left: -120px;
+            width: 240px;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            text-align: center;
+            padding: 12px 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            z-index: 300;
+            display: none;
+            /* 柔和的阴影文字 */
+            text-shadow: 0 1px 1px rgba(0,0,0,0.8);
+        }
+        /* 气泡底部的小尖角 */
+        .add-to-home-prompt::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            margin-left: -8px;
+            border-width: 8px 8px 0 8px;
+            border-style: solid;
+            border-color: rgba(0, 0, 0, 0.75) transparent transparent transparent;
+        }
     </style>
 </head>
 <body>
@@ -591,10 +630,17 @@
         </div>
     </div>
 
+    <!-- 添加到桌面的引导气泡 -->
+    <div class="add-to-home-prompt" id="addToHomePrompt">
+        获得最佳全屏原生体验：<br>
+        点击下方 <b style="font-size:18px">⎋</b> 或 <b>分享</b> 按钮<br>
+        选择 <strong>"添加到主屏幕"</strong>
+    </div>
+
     <script>
         // 严格使用 ES5 语法以保证在 iOS 6 Safari 运行
         var currentChannels = [];
-        var currentPlayingChannel = null; // 新增：记录当前正在播放的频道对象
+        var currentPlayingChannel = null; 
 
         window.onload = function() {
             var savedM3u = localStorage.getItem('ios6_iptv_m3u');
@@ -604,6 +650,20 @@
                 if (currentChannels.length > 0) {
                     renderGroups();
                 }
+            }
+
+            // 核心逻辑：智能探测 Web App 环境
+            // navigator.standalone 是 iOS 独有的属性，用于判断网页是否从桌面图标全屏启动
+            var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+            if (isIOS && !window.navigator.standalone) {
+                var prompt = document.getElementById('addToHomePrompt');
+                prompt.style.display = 'block';
+                // 显示 10 秒后自动渐渐隐藏，避免过度干扰用户
+                setTimeout(function() {
+                    prompt.style.opacity = '0';
+                    prompt.style.webkitTransition = 'opacity 1s';
+                    setTimeout(function() { prompt.style.display = 'none'; }, 1000);
+                }, 10000);
             }
         };
 
