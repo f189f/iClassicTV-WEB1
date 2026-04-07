@@ -125,18 +125,19 @@
             left: -11px;
             width: 22px;
             height: 22px;
-            /* 倾斜渐变以匹配主按钮的垂直渐变 */
-            background: -webkit-linear-gradient(-45deg, #7b91ab 0%, #577395 50%, #426185 51%, #2b4c73 100%);
+            /* 修正了渐变色值与主按钮完全一致，并通过 top right 完美抵消旋转角度 */
+            background: -webkit-linear-gradient(top right, #778ea9 0%, #516d8e 50%, #436184 51%, #2b4b72 100%);
             border-top: 1px solid #3e5066;
             border-left: 1px solid #3e5066;
             /* 旋转45度并稍微压扁形成完美尖角 */
             -webkit-transform: scaleX(0.8) rotate(-45deg);
             -webkit-border-radius: 3px 0 0 0;
-            box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.3);
+            /* 修正顶部高光阴影，使其与主按钮高光完美融合 */
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
             z-index: -1;
         }
         .nav-btn.back:active::before {
-            background: -webkit-linear-gradient(-45deg, #436184 0%, #2b4b72 50%, #2b4b72 51%, #1d334f 100%);
+            background: -webkit-linear-gradient(top right, #436184 0%, #2b4b72 50%, #2b4b72 51%, #1d334f 100%);
         }
 
         /* 独立滚动的内部内容区域 */
