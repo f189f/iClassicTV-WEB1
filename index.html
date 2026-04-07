@@ -196,47 +196,145 @@
             margin-top: 20px;
             text-shadow: 0 1px 0 rgba(255,255,255,0.6);
         }
+
+        /* 底部 Tab 栏 */
+        .tab-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 49px;
+            background: -webkit-linear-gradient(top, #434343 0%, #2b2b2b 50%, #151515 51%, #000000 100%);
+            border-top: 1px solid #000;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            z-index: 20;
+            display: block;
+        }
+        .tab-item {
+            float: left;
+            width: 50%;
+            height: 49px;
+            text-align: center;
+            color: #999;
+            font-size: 11px;
+            font-weight: bold;
+            padding-top: 4px;
+            box-sizing: border-box;
+            cursor: pointer;
+            text-shadow: 0 -1px 0 rgba(0,0,0,0.8);
+        }
+        .tab-icon {
+            display: block;
+            font-size: 22px;
+            margin-bottom: 2px;
+            line-height: 22px;
+            color: #777;
+        }
+        .tab-item.active {
+            color: #fff;
+        }
+        .tab-item.active .tab-icon {
+            color: #3b88d4;
+            text-shadow: 0 0 5px rgba(59, 136, 212, 0.5);
+        }
+        
+        /* 避免内容被 Tab 栏遮挡 */
+        .content.has-tab {
+            padding-bottom: 60px;
+        }
+        
+        /* 关于页面的文本样式 */
+        .about-text {
+            text-align: center; 
+            margin-top: 30px;
+            color: #4c566c;
+            text-shadow: 0 1px 0 #fff;
+        }
     </style>
 </head>
 <body>
 
-    <!-- 视图 1：设置 / 加载 M3U 页面 -->
-    <div id="setupScreen" class="screen active">
+    <!-- 视图 1：频道列表页面 (首页) -->
+    <div id="listScreen" class="screen active">
         <div class="navbar">
-            <div class="navbar-title">IPTV 设置</div>
+            <div class="nav-btn left" onclick="showScreen('settingsScreen')">设置</div>
+            <div class="navbar-title">IPTV</div>
+            <div class="nav-btn right" onclick="showScreen('aboutScreen')">关于</div>
         </div>
-        <div class="content">
-            <textarea id="m3uInput" placeholder="在此粘贴您的 m3u 直播源文本内容..."></textarea>
-            <div class="action-btn" onclick="loadM3U()">载入频道列表</div>
-            <div class="action-btn gray" onclick="loadDemo()">加载演示测试源</div>
+        <div class="content has-tab">
+            <ul class="table-view" id="channelList">
+                <li style="text-align:center; color:#666; font-weight:normal;">列表为空，请在"导入"栏添加源</li>
+            </ul>
         </div>
     </div>
 
-    <!-- 视图 2：频道列表页面 -->
-    <div id="listScreen" class="screen">
+    <!-- 视图 2：设置 / 加载 M3U 页面 -->
+    <div id="setupScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('setupScreen')">返回</div>
-            <div class="navbar-title">频道列表</div>
+            <div class="navbar-title">导入直播源</div>
         </div>
-        <div class="content">
-            <ul class="table-view" id="channelList">
-                <!-- 列表项将由 JavaScript 动态生成 -->
-            </ul>
+        <div class="content has-tab">
+            <textarea id="m3uInput" placeholder="在此粘贴您的 m3u 直播源文本内容..."></textarea>
+            <div class="action-btn" onclick="loadM3U()">载入并保存</div>
+            <div class="action-btn gray" onclick="loadDemo()">加载演示测试源</div>
         </div>
     </div>
 
     <!-- 视图 3：播放器页面 -->
     <div id="playerScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" onclick="stopPlayer()">频道</div>
+            <div class="nav-btn left" onclick="showScreen('listScreen')">频道</div>
             <div class="navbar-title" id="playerTitle">正在加载...</div>
         </div>
         <div class="content">
             <div class="player-container">
-                <!-- iOS Safari 原生支持播放 .m3u8 格式，无需额外 JS 插件 -->
                 <video id="videoPlayer" controls></video>
             </div>
             <p class="notice">提示：在 iOS 设备上点击播放器将自动进入全屏播放模式。</p>
+        </div>
+    </div>
+
+    <!-- 视图 4：设置页面 -->
+    <div id="settingsScreen" class="screen">
+        <div class="navbar">
+            <div class="nav-btn left" onclick="showScreen('listScreen')">完成</div>
+            <div class="navbar-title">设置</div>
+        </div>
+        <div class="content">
+            <ul class="table-view">
+                <li onclick="clearCache()">清除本地频道缓存 <span class="chevron">〉</span></li>
+                <li onclick="alert('iOS6 兼容模式已强制开启。')">兼容模式 <span style="position:absolute; right:15px; color:#3b88d4;">开启</span></li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 视图 5：关于页面 -->
+    <div id="aboutScreen" class="screen">
+        <div class="navbar">
+            <div class="nav-btn left" onclick="showScreen('listScreen')">完成</div>
+            <div class="navbar-title">关于</div>
+        </div>
+        <div class="content">
+            <div class="about-text">
+                <h2>IPTV Player</h2>
+                <p style="font-size: 14px;">版本 1.0 (iOS 6 Edition)</p>
+                <p style="font-size: 14px; padding: 0 20px; margin-top:20px; color: #666;">
+                    这是一款专为 iOS 6 Safari 打造的纯正拟物化风格 IPTV 播放器。<br><br>
+                    使用纯原生 ES5 与 CSS 构建，致敬经典。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- iOS 6 底部 Tab 栏 -->
+    <div class="tab-bar" id="tabBar">
+        <div class="tab-item active" onclick="switchTab('listScreen', 0)">
+            <span class="tab-icon">📺</span>
+            <span>频道</span>
+        </div>
+        <div class="tab-item" onclick="switchTab('setupScreen', 1)">
+            <span class="tab-icon">📝</span>
+            <span>导入</span>
         </div>
     </div>
 
@@ -249,8 +347,22 @@
             var savedM3u = localStorage.getItem('ios6_iptv_m3u');
             if (savedM3u) {
                 document.getElementById('m3uInput').value = savedM3u;
+                currentChannels = parseM3U(savedM3u);
+                if (currentChannels.length > 0) {
+                    renderChannels();
+                }
             }
         };
+
+        // Tab 切换逻辑
+        function switchTab(screenId, tabIndex) {
+            var tabs = document.querySelectorAll('.tab-item');
+            for (var i = 0; i < tabs.length; i++) {
+                tabs[i].className = 'tab-item';
+            }
+            tabs[tabIndex].className = 'tab-item active';
+            showScreen(screenId);
+        }
 
         // 视图切换逻辑
         function showScreen(screenId) {
@@ -259,6 +371,14 @@
                 screens[i].className = 'screen';
             }
             document.getElementById(screenId).className = 'screen active';
+
+            // 控制底部 Tab 栏的显示与隐藏 (只在主页和导入页显示)
+            var tabBar = document.getElementById('tabBar');
+            if (screenId === 'listScreen' || screenId === 'setupScreen') {
+                tabBar.style.display = 'block';
+            } else {
+                tabBar.style.display = 'none';
+            }
         }
 
         // 解析 M3U 数据（简易解析器）
@@ -305,7 +425,7 @@
             }
 
             renderChannels();
-            showScreen('listScreen');
+            switchTab('listScreen', 0); // 解析完毕自动跳转并激活第一个 Tab
         }
 
         // 渲染 iOS 风格的 Table View
@@ -367,6 +487,15 @@
                 "#EXTINF:-1,测试用大本钟直播(境外)\n" +
                 "https://skynews-eu.rakuten.amagi.tv/playlist.m3u8";
             document.getElementById('m3uInput').value = demoText;
+        }
+
+        // 设置功能：清除缓存
+        function clearCache() {
+            localStorage.removeItem('ios6_iptv_m3u');
+            currentChannels = [];
+            document.getElementById('m3uInput').value = '';
+            document.getElementById('channelList').innerHTML = '<li style="text-align:center; color:#666; font-weight:normal;">列表为空，请在"导入"栏添加源</li>';
+            alert('本地频道缓存已清除！');
         }
     </script>
 </body>
