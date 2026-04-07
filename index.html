@@ -164,6 +164,35 @@
         /* 移除第一个 Header 的上边框以贴合外框圆角 */
         .table-view li:first-child.table-group-header { border-top: none; }
 
+        /* 分组列表项 */
+        .table-view li.group-item {
+            border-bottom: 1px solid #ababab;
+            padding: 12px 15px;
+            font-size: 17px;
+            font-weight: bold;
+            color: #000;
+            position: relative;
+            cursor: pointer;
+        }
+        .table-view li.group-item:last-child { border-bottom: none; }
+        .table-view li.group-item:active {
+            background-color: #015ee6;
+            background-image: -webkit-linear-gradient(top, #0571ff, #015ee6);
+            color: #fff;
+        }
+
+        /* 数量徽章 */
+        .count {
+            position: absolute;
+            right: 35px;
+            top: 50%;
+            margin-top: -10px;
+            color: #7f7f7f;
+            font-size: 16px;
+            font-weight: normal;
+        }
+        .table-view li.group-item:active .count { color: #fff; }
+
         /* 频道列表项 */
         .table-view li.item {
             border-bottom: 1px solid #ababab;
@@ -290,12 +319,24 @@
     <div id="listScreen" class="screen active">
         <div class="navbar">
             <div class="nav-btn left" onclick="showScreen('settingsScreen')">设置</div>
-            <div class="navbar-title">IPTV</div>
+            <div class="navbar-title">频道分组</div>
             <div class="nav-btn right" onclick="showScreen('aboutScreen')">关于</div>
         </div>
         <div class="content has-tab">
-            <ul class="table-view" id="channelList">
+            <ul class="table-view" id="groupList">
                 <li style="text-align:center; color:#666; font-weight:normal; padding: 20px;">列表为空，请在"导入"栏添加源</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 视图 1.5：具体频道的二级列表页面 -->
+    <div id="channelListScreen" class="screen">
+        <div class="navbar">
+            <div class="nav-btn left" onclick="showScreen('listScreen')">分组</div>
+            <div class="navbar-title" id="groupTitle">加载中...</div>
+        </div>
+        <div class="content has-tab">
+            <ul class="table-view" id="channelList">
             </ul>
         </div>
     </div>
@@ -321,7 +362,7 @@
     <!-- 视图 3：播放器页面 -->
     <div id="playerScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('listScreen')">频道</div>
+            <div class="nav-btn left" id="playerBackBtn" onclick="stopPlayer()">返回</div>
             <div class="navbar-title" id="playerTitle">正在加载...</div>
         </div>
         <div class="content">
@@ -408,7 +449,7 @@
             document.getElementById(screenId).className = 'screen active';
 
             var tabBar = document.getElementById('tabBar');
-            if (screenId === 'listScreen' || screenId === 'setupScreen') {
+            if (screenId === 'listScreen' || screenId === 'setupScreen' || screenId === 'channelListScreen') {
                 tabBar.style.display = 'block';
             } else {
                 tabBar.style.display = 'none';
@@ -472,7 +513,7 @@
                 return;
             }
 
-            renderChannels();
+            renderGroups();
             switchTab('listScreen', 0); 
         }
 
@@ -525,12 +566,16 @@
             processAndSaveM3U(data);
         }
 
-        // 渲染 iOS 分组风格的 Table View
-        function renderChannels() {
-            var listElem = document.getElementById('channelList');
+        // 渲染 iOS 风格的分组（一级列表）
+        function renderGroups() {
+            var listElem = document.getElementById('groupList');
             listElem.innerHTML = ''; 
 
-            // 1. 将数据按 group 分组归类
+            if (currentChannels.length === 0) {
+                listElem.innerHTML = '<li style="text-align:center; color:#666; font-weight:normal; padding: 20px;">列表为空，请在"导入"栏添加源</li>';
+                return;
+            }
+
             var groupedData = {};
             for (var i = 0; i < currentChannels.length; i++) {
                 var ch = currentChannels[i];
@@ -541,47 +586,73 @@
                 groupedData[g].push(ch);
             }
 
-            // 内置一个灰色 iOS 风格的占位 Logo (纯原生代码生成的内联 SVG)
-            var defaultLogo = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="#d1d6dc"/><text x="20" y="26" font-family="Helvetica, sans-serif" font-size="14" font-weight="bold" fill="#7d8b9e" text-anchor="middle">TV</text></svg>');
-
-            // 2. 遍历渲染分组及频道
             for (var groupName in groupedData) {
                 if (groupedData.hasOwnProperty(groupName)) {
+                    var li = document.createElement('li');
+                    li.className = 'group-item';
                     
-                    // 创建并插入分组的 Header 行
-                    var headerLi = document.createElement('li');
-                    headerLi.className = 'table-group-header';
-                    headerLi.innerHTML = groupName;
-                    listElem.appendChild(headerLi);
+                    var count = groupedData[groupName].length;
 
-                    var channelsInGroup = groupedData[groupName];
-                    for (var j = 0; j < channelsInGroup.length; j++) {
-                        var channel = channelsInGroup[j];
-                        var li = document.createElement('li');
-                        li.className = 'item';
-                        
-                        // 判定 Logo
-                        var logoSrc = channel.logo ? channel.logo : defaultLogo;
-
-                        // 这里用了 onerror 来处理如果远程 Logo URL 存在但是加载失败(404)时，自动替换回默认 Logo
-                        li.innerHTML = '<img class="channel-logo" src="' + logoSrc + '" onerror="this.src=\'' + defaultLogo + '\'" />' +
-                                       '<span class="channel-name">' + channel.name + '</span>' +
-                                       '<span class="chevron">〉</span>';
-                        
-                        (function(ch) {
-                            li.onclick = function() {
-                                playChannel(ch);
-                            };
-                        })(channel);
-                        
-                        listElem.appendChild(li);
-                    }
+                    li.innerHTML = groupName + 
+                                   '<span class="count">' + count + '</span>' +
+                                   '<span class="chevron">〉</span>';
+                    
+                    (function(gName) {
+                        li.onclick = function() {
+                            showGroup(gName);
+                        };
+                    })(groupName);
+                    
+                    listElem.appendChild(li);
                 }
             }
         }
 
+        // 进入具体分组（二级列表）
+        var currentSelectedGroup = '';
+        
+        function showGroup(groupName) {
+            currentSelectedGroup = groupName;
+            document.getElementById('groupTitle').innerHTML = groupName;
+            
+            var listElem = document.getElementById('channelList');
+            listElem.innerHTML = ''; 
+
+            var defaultLogo = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40"><rect width="40" height="40" rx="8" fill="#d1d6dc"/><text x="20" y="26" font-family="Helvetica, sans-serif" font-size="14" font-weight="bold" fill="#7d8b9e" text-anchor="middle">TV</text></svg>');
+
+            for (var i = 0; i < currentChannels.length; i++) {
+                var channel = currentChannels[i];
+                if (channel.group === groupName) {
+                    var li = document.createElement('li');
+                    li.className = 'item';
+                    
+                    var logoSrc = channel.logo ? channel.logo : defaultLogo;
+
+                    li.innerHTML = '<img class="channel-logo" src="' + logoSrc + '" onerror="this.src=\'' + defaultLogo + '\'" />' +
+                                   '<span class="channel-name">' + channel.name + '</span>' +
+                                   '<span class="chevron">〉</span>';
+                    
+                    (function(ch) {
+                        li.onclick = function() {
+                            playChannel(ch);
+                        };
+                    })(channel);
+                    
+                    listElem.appendChild(li);
+                }
+            }
+            
+            showScreen('channelListScreen');
+        }
+
+        // 为了兼容旧初始化代码
+        function renderChannels() {
+            renderGroups();
+        }
+
         function playChannel(channel) {
             document.getElementById('playerTitle').innerHTML = channel.name;
+            document.getElementById('playerBackBtn').innerHTML = '返回';
             var video = document.getElementById('videoPlayer');
             
             video.src = channel.url;
@@ -596,7 +667,7 @@
             var video = document.getElementById('videoPlayer');
             video.pause();
             video.src = ''; 
-            showScreen('listScreen');
+            showScreen('channelListScreen');
         }
 
         // 更新演示测试源：增加了 Logo 和分组标签来测试新功能
@@ -616,9 +687,11 @@
         function clearCache() {
             localStorage.removeItem('ios6_iptv_m3u');
             currentChannels = [];
+            currentSelectedGroup = '';
             document.getElementById('m3uUrlInput').value = '';
             document.getElementById('m3uInput').value = '';
-            document.getElementById('channelList').innerHTML = '<li style="text-align:center; color:#666; font-weight:normal; padding: 20px;">列表为空，请在"导入"栏添加源</li>';
+            document.getElementById('groupList').innerHTML = '<li style="text-align:center; color:#666; font-weight:normal; padding: 20px;">列表为空，请在"导入"栏添加源</li>';
+            document.getElementById('channelList').innerHTML = '';
             alert('本地频道缓存已清除！');
         }
     </script>
