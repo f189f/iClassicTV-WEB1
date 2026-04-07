@@ -2,41 +2,75 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <!-- 针对 iOS Safari 的视口设置，禁止缩放，隐藏原生 UI -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black">
     <title>IPTV Player</title>
     <style>
         /* iOS 6 全局基础样式 */
-        body {
+        html, body {
             margin: 0;
             padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden; /* 锁死外部滚动，为滑动动画准备 */
             font-family: "Helvetica Neue", Helvetica, sans-serif;
-            background-color: #cbd2d8;
-            background-image: -webkit-repeating-linear-gradient(top, transparent, transparent 2px, rgba(255,255,255,0.2) 2px, rgba(255,255,255,0.2) 4px);
-            color: #000;
+            background-color: #000; /* 切换时的底层黑色背景 */
             -webkit-text-size-adjust: none;
             -webkit-user-select: none;
         }
 
-        .screen { display: none; }
-        .screen.active { display: block; }
-
-        /* iOS 6 顶部导航栏 (蓝灰渐变玻璃质感) */
-        .navbar {
-            position: fixed; /* 修改为固定定位 */
+        /* 页面容器基础属性 */
+        .screen {
+            position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            box-sizing: border-box; /* 确保边框不会撑破屏幕宽度 */
+            height: 100%;
+            background-color: #cbd2d8;
+            background-image: -webkit-repeating-linear-gradient(top, transparent, transparent 2px, rgba(255,255,255,0.2) 2px, rgba(255,255,255,0.2) 4px);
+            display: none;
+            -webkit-transform: translateX(100%);
+            z-index: 1;
+        }
+
+        /* 动画状态类 */
+        .screen.active {
+            display: block;
+            -webkit-transform: translateX(0);
+            z-index: 2;
+        }
+        .screen.left {
+            display: block;
+            -webkit-transform: translateX(-30%); /* iOS 经典的视差滑动效果 */
+            z-index: 1;
+        }
+        .screen.right {
+            display: block;
+            -webkit-transform: translateX(100%);
+            z-index: 3;
+        }
+        .screen.transition {
+            /* 使用近似 iOS 的原生动画贝塞尔曲线 */
+            -webkit-transition: -webkit-transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            display: block;
+        }
+
+        /* iOS 6 顶部导航栏 (固定在屏幕顶端) */
+        .navbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            -webkit-box-sizing: border-box;
+            box-sizing: border-box;
             height: 44px;
             background: -webkit-linear-gradient(top, #b0bccd 0%, #889bb3 50%, #8195af 51%, #6d84a2 100%);
             border-bottom: 1px solid #2d3642;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
             text-align: center;
             line-height: 44px;
-            z-index: 100; /* 提升层级，确保在内容和视频之上 */
+            z-index: 100; 
         }
 
         .navbar-title {
@@ -51,6 +85,7 @@
             text-overflow: ellipsis;
         }
 
+        /* 顶部导航栏常规按钮 */
         .nav-btn {
             position: absolute;
             top: 7px;
@@ -67,6 +102,7 @@
             background: -webkit-linear-gradient(top, #778ea9 0%, #516d8e 50%, #436184 51%, #2b4b72 100%);
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 0 rgba(255, 255, 255, 0.3);
             cursor: pointer;
+            z-index: 2;
         }
         .nav-btn.left { left: 5px; }
         .nav-btn.right { right: 5px; }
@@ -74,13 +110,55 @@
             background: -webkit-linear-gradient(top, #436184 0%, #2b4b72 50%, #2b4b72 51%, #1d334f 100%);
         }
 
-        /* 顶部 padding 从 15px 增加到 59px (44px 导航栏高度 + 15px 原本留白) */
-        .content { padding: 59px 10px 15px 10px; } 
+        /* 重点：纯 CSS 还原 iOS 6 经典尖角后退按钮 */
+        .nav-btn.back {
+            padding-left: 6px;
+            margin-left: 10px;
+            border-left: none;
+            border-top-left-radius: 0;
+            border-bottom-left-radius: 0;
+        }
+        .nav-btn.back::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: -11px;
+            width: 22px;
+            height: 22px;
+            /* 倾斜渐变以匹配主按钮的垂直渐变 */
+            background: -webkit-linear-gradient(-45deg, #7b91ab 0%, #577395 50%, #426185 51%, #2b4c73 100%);
+            border-top: 1px solid #3e5066;
+            border-left: 1px solid #3e5066;
+            /* 旋转45度并稍微压扁形成完美尖角 */
+            -webkit-transform: scaleX(0.8) rotate(-45deg);
+            -webkit-border-radius: 3px 0 0 0;
+            box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.3);
+            z-index: -1;
+        }
+        .nav-btn.back:active::before {
+            background: -webkit-linear-gradient(-45deg, #436184 0%, #2b4b72 50%, #2b4b72 51%, #1d334f 100%);
+        }
 
-        /* 表单输入区域 */
+        /* 独立滚动的内部内容区域 */
+        .content { 
+            position: absolute;
+            top: 44px; /* 避开顶部栏 */
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            -webkit-box-sizing: border-box;
+            box-sizing: border-box;
+            padding: 15px 10px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* iOS 惯性滚动必备 */
+        } 
+        /* 避开底部 Tab 栏 */
+        .content.has-tab { bottom: 49px; } 
+
         textarea {
             width: 100%;
             height: 140px;
+            -webkit-box-sizing: border-box;
             box-sizing: border-box;
             border: 1px solid #ababab;
             border-radius: 8px;
@@ -95,6 +173,7 @@
         input[type="text"] {
             width: 100%;
             height: 40px;
+            -webkit-box-sizing: border-box;
             box-sizing: border-box;
             border: 1px solid #ababab;
             border-radius: 8px;
@@ -113,7 +192,6 @@
             font-weight: bold;
         }
 
-        /* 大号动作按钮 */
         .action-btn {
             display: block;
             width: 100%;
@@ -141,7 +219,6 @@
         }
         .action-btn.gray:active { background: -webkit-linear-gradient(top, #d4d4d4 0%, #c4c4c4 50%, #b3b3b3 51%, #999999 100%); }
 
-        /* iOS 6 UITableView 圆角列表风格 */
         .table-view {
             margin: 0;
             background: #fff;
@@ -150,10 +227,9 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.2);
             list-style: none;
             padding: 0;
-            overflow: hidden; /* 防止内部元素超出圆角 */
+            overflow: hidden; 
         }
 
-        /* 列表分组标题 (类似 iOS 联系人应用中的字母条) */
         .table-group-header {
             background: -webkit-linear-gradient(top, #b8c6d7 0%, #90a5bf 100%);
             color: #fff;
@@ -166,10 +242,8 @@
             margin: 0;
             cursor: default;
         }
-        /* 移除第一个 Header 的上边框以贴合外框圆角 */
         .table-view li:first-child.table-group-header { border-top: none; }
 
-        /* 分组列表项 */
         .table-view li.group-item {
             border-bottom: 1px solid #ababab;
             padding: 12px 15px;
@@ -186,7 +260,6 @@
             color: #fff;
         }
 
-        /* 数量徽章 */
         .count {
             position: absolute;
             right: 35px;
@@ -198,10 +271,9 @@
         }
         .table-view li.group-item:active .count { color: #fff; }
 
-        /* 频道列表项 */
         .table-view li.item {
             border-bottom: 1px solid #ababab;
-            padding: 8px 15px 8px 55px; /* 左侧留出55px给Logo */
+            padding: 8px 15px 8px 55px;
             font-size: 17px;
             font-weight: bold;
             color: #000;
@@ -216,12 +288,11 @@
             color: #fff;
         }
 
-        /* 频道 Logo */
         .channel-logo {
             position: absolute;
             left: 10px;
             top: 50%;
-            margin-top: -16px; /* 32px高度的一半 */
+            margin-top: -16px; 
             width: 32px;
             height: 32px;
             border-radius: 6px;
@@ -230,17 +301,15 @@
             object-fit: cover;
         }
 
-        /* 频道名称 */
         .channel-name {
             display: block;
             line-height: 30px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            margin-right: 20px; /* 留出右侧箭头的空间 */
+            margin-right: 20px; 
         }
 
-        /* 右侧箭头符号 */
         .chevron {
             position: absolute;
             right: 15px;
@@ -252,7 +321,6 @@
         }
         .table-view li.item:active .chevron { color: #fff; }
 
-        /* 播放器区域 */
         .player-container {
             background: #000;
             width: 100%;
@@ -270,7 +338,6 @@
             text-shadow: 0 1px 0 rgba(255,255,255,0.6);
         }
 
-        /* 底部 Tab 栏 */
         .tab-bar {
             position: fixed;
             bottom: 0;
@@ -280,7 +347,7 @@
             background: -webkit-linear-gradient(top, #434343 0%, #2b2b2b 50%, #151515 51%, #000000 100%);
             border-top: 1px solid #000;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-            z-index: 20;
+            z-index: 200;
             display: block;
         }
         .tab-item {
@@ -292,6 +359,7 @@
             font-size: 11px;
             font-weight: bold;
             padding-top: 4px;
+            -webkit-box-sizing: border-box;
             box-sizing: border-box;
             cursor: pointer;
             text-shadow: 0 -1px 0 rgba(0,0,0,0.8);
@@ -309,7 +377,6 @@
             text-shadow: 0 0 5px rgba(59, 136, 212, 0.5);
         }
         
-        .content.has-tab { padding-bottom: 60px; }
         .about-text {
             text-align: center; 
             margin-top: 30px;
@@ -323,9 +390,9 @@
     <!-- 视图 1：频道列表页面 (首页) -->
     <div id="listScreen" class="screen active">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('settingsScreen')">设置</div>
+            <div class="nav-btn left" onclick="showScreen('settingsScreen', 'forward')">设置</div>
             <div class="navbar-title">频道分组</div>
-            <div class="nav-btn right" onclick="showScreen('aboutScreen')">关于</div>
+            <div class="nav-btn right" onclick="showScreen('aboutScreen', 'forward')">关于</div>
         </div>
         <div class="content has-tab">
             <ul class="table-view" id="groupList">
@@ -337,7 +404,8 @@
     <!-- 视图 1.5：具体频道的二级列表页面 -->
     <div id="channelListScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('listScreen')">分组</div>
+            <!-- 经典的 iOS 6 尖角后退按钮 -->
+            <div class="nav-btn left back" onclick="showScreen('listScreen', 'backward')">分组</div>
             <div class="navbar-title" id="groupTitle">加载中...</div>
         </div>
         <div class="content has-tab">
@@ -367,7 +435,7 @@
     <!-- 视图 3：播放器页面 -->
     <div id="playerScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" id="playerBackBtn" onclick="stopPlayer()">返回</div>
+            <div class="nav-btn left back" id="playerBackBtn" onclick="stopPlayer()">返回</div>
             <div class="navbar-title" id="playerTitle">正在加载...</div>
         </div>
         <div class="content">
@@ -381,7 +449,7 @@
     <!-- 视图 4：设置页面 -->
     <div id="settingsScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('listScreen')">完成</div>
+            <div class="nav-btn left" onclick="showScreen('listScreen', 'backward')">完成</div>
             <div class="navbar-title">设置</div>
         </div>
         <div class="content">
@@ -395,16 +463,17 @@
     <!-- 视图 5：关于页面 -->
     <div id="aboutScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('listScreen')">完成</div>
+            <div class="nav-btn left" onclick="showScreen('listScreen', 'backward')">完成</div>
             <div class="navbar-title">关于</div>
         </div>
         <div class="content">
             <div class="about-text">
-                <h2>IPTV Player</h2>
-                <p style="font-size: 14px;">版本 1.1 (iOS 6 Edition)</p>
+                <h2>iClassicTV</h2>
+                <p style="font-size: 14px;">版本 2.0 (Skeuomorphism)</p>
                 <p style="font-size: 14px; padding: 0 20px; margin-top:20px; color: #666;">
-                    增加频道 Logo 与多级分组解析支持。<br><br>
-                    使用纯原生 ES5 与 CSS 构建，致敬经典。
+                    加入硬件加速的页面滑动动画。<br>
+                    纯手工 CSS 绘制经典后退尖角按钮。<br><br>
+                    极致复原，致敬经典。
                 </p>
             </div>
         </div>
@@ -432,43 +501,78 @@
                 document.getElementById('m3uInput').value = savedM3u;
                 currentChannels = parseM3U(savedM3u);
                 if (currentChannels.length > 0) {
-                    renderChannels();
+                    renderGroups();
                 }
             }
         };
 
+        // Tab栏切换 (无滑动动画，瞬间切换)
         function switchTab(screenId, tabIndex) {
             var tabs = document.querySelectorAll('.tab-item');
             for (var i = 0; i < tabs.length; i++) {
                 tabs[i].className = 'tab-item';
             }
             tabs[tabIndex].className = 'tab-item active';
-            showScreen(screenId);
+            showScreen(screenId); 
         }
 
-        function showScreen(screenId) {
-            var screens = document.querySelectorAll('.screen');
-            for (var i = 0; i < screens.length; i++) {
-                screens[i].className = 'screen';
-            }
-            document.getElementById(screenId).className = 'screen active';
+        // 核心：带有硬件加速滑动动画的屏幕切换器
+        function showScreen(screenId, animationType) {
+            var current = document.querySelector('.screen.active');
+            var target = document.getElementById(screenId);
+            
+            if (current === target) return;
 
+            // 底部 TabBar 显示逻辑
             var tabBar = document.getElementById('tabBar');
             if (screenId === 'listScreen' || screenId === 'setupScreen' || screenId === 'channelListScreen') {
                 tabBar.style.display = 'block';
             } else {
                 tabBar.style.display = 'none';
             }
+
+            // 执行动画逻辑
+            if (!current || !animationType) {
+                // 初次加载或底部 Tab 切换 (无动画)
+                var screens = document.querySelectorAll('.screen');
+                for (var i = 0; i < screens.length; i++) {
+                    screens[i].className = 'screen';
+                }
+                target.className = 'screen active';
+            } else if (animationType === 'forward') {
+                // 页面前进：当前页向左滑出 (-30%)，新页面从右侧(100%)滑入
+                target.className = 'screen right';
+                var dummy = target.offsetHeight; // 强制浏览器回流重绘
+                current.className = 'screen left transition';
+                target.className = 'screen active transition';
+                
+                // 动画结束后清理旧页面状态
+                setTimeout(function(){
+                    if(current.className.indexOf('left') !== -1) {
+                        current.className = 'screen';
+                    }
+                }, 350);
+            } else if (animationType === 'backward') {
+                // 页面后退：当前页向右滑出 (100%)，旧页面从左侧(-30%)滑回
+                target.className = 'screen left';
+                var dummy = target.offsetHeight; // 强制浏览器回流重绘
+                current.className = 'screen right transition';
+                target.className = 'screen active transition';
+                
+                // 动画结束后清理旧页面状态
+                setTimeout(function(){
+                    if(current.className.indexOf('right') !== -1) {
+                        current.className = 'screen';
+                    }
+                }, 350);
+            }
         }
 
-        // 提取属性的通用小工具（兼容引号和非引号形式）
         function extractAttr(line, attrName) {
-            // 尝试匹配带双引号的属性值 tvg-logo="url"
             var regexQuotes = new RegExp(attrName + '="([^"]+)"');
             var matchQuotes = line.match(regexQuotes);
             if (matchQuotes) return matchQuotes[1];
             
-            // 如果没有匹配到，尝试匹配不带引号的属性值 tvg-logo=url (容错)
             var regexNoQuotes = new RegExp(attrName + '=([^",\\s]+)');
             var matchNoQuotes = line.match(regexNoQuotes);
             if (matchNoQuotes) return matchNoQuotes[1];
@@ -476,7 +580,6 @@
             return null;
         }
 
-        // 解析 M3U 数据（增强版：支持 Logo 和分组提取）
         function parseM3U(data) {
             var lines = data.split('\n');
             var channels = [];
@@ -490,7 +593,6 @@
                     var logo = extractAttr(line, 'tvg-logo') || '';
                     var group = extractAttr(line, 'group-title') || '未分组';
                     
-                    // 获取逗号后面的频道名称
                     var commaIndex = line.lastIndexOf(',');
                     if (commaIndex !== -1 && commaIndex < line.length - 1) {
                         name = line.substring(commaIndex + 1).replace(/^\s+|\s+$/g, '');
@@ -500,7 +602,7 @@
                 } else if ((line.indexOf('http://') === 0 || line.indexOf('https://') === 0) && currentChannel) {
                     currentChannel.url = line;
                     channels.push(currentChannel);
-                    currentChannel = null; // 重置
+                    currentChannel = null;
                 }
             }
             return channels;
@@ -554,9 +656,7 @@
                 alert('网络连接失败。请检查网址是否正确。');
             };
 
-            try {
-                xhr.send();
-            } catch(e) {
+            try { xhr.send(); } catch(e) {
                 btn.innerHTML = originalText;
                 alert('请求出错: ' + e.message);
             }
@@ -571,7 +671,6 @@
             processAndSaveM3U(data);
         }
 
-        // 渲染 iOS 风格的分组（一级列表）
         function renderGroups() {
             var listElem = document.getElementById('groupList');
             listElem.innerHTML = ''; 
@@ -613,7 +712,6 @@
             }
         }
 
-        // 进入具体分组（二级列表）
         var currentSelectedGroup = '';
         
         function showGroup(groupName) {
@@ -647,23 +745,19 @@
                 }
             }
             
-            showScreen('channelListScreen');
-        }
-
-        // 为了兼容旧初始化代码
-        function renderChannels() {
-            renderGroups();
+            // 触发进入子页面的 forward 动画
+            showScreen('channelListScreen', 'forward');
         }
 
         function playChannel(channel) {
             document.getElementById('playerTitle').innerHTML = channel.name;
-            document.getElementById('playerBackBtn').innerHTML = '返回';
             var video = document.getElementById('videoPlayer');
             
             video.src = channel.url;
             video.load();
             
-            showScreen('playerScreen');
+            // 触发进入播放器的 forward 动画
+            showScreen('playerScreen', 'forward');
             
             try { video.play(); } catch(e) {}
         }
@@ -672,10 +766,10 @@
             var video = document.getElementById('videoPlayer');
             video.pause();
             video.src = ''; 
-            showScreen('channelListScreen');
+            // 触发退出播放器的 backward 动画
+            showScreen('channelListScreen', 'backward');
         }
 
-        // 更新演示测试源：增加了 Logo 和分组标签来测试新功能
         function loadDemo() {
             var demoText = "#EXTM3U\n" +
                 "#EXTINF:-1 tvg-logo=\"https://epg.112114.xyz/logo/CCTV1.png\" group-title=\"央视\",CCTV-1 综合\n" +
