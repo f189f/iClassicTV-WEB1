@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <!-- 针对 iOS Safari 的视口设置，禁止缩放，隐藏原生 UI -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <title>IPTV Player</title>
+    <style>
+        /* iOS 6 全局基础样式 */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: "Helvetica Neue", Helvetica, sans-serif;
+            /* 经典的 iOS 6 条纹背景 */
+            background-color: #cbd2d8;
+            background-image: -webkit-repeating-linear-gradient(top, transparent, transparent 2px, rgba(255,255,255,0.2) 2px, rgba(255,255,255,0.2) 4px);
+            color: #000;
+            -webkit-text-size-adjust: none;
+            -webkit-user-select: none;
+        }
+
+        /* 隐藏不同屏幕状态 */
+        .screen {
+            display: none;
+        }
+        .screen.active {
+            display: block;
+        }
+
+        /* iOS 6 顶部导航栏 (蓝灰渐变玻璃质感) */
+        .navbar {
+            height: 44px;
+            background: -webkit-linear-gradient(top, #b0bccd 0%, #889bb3 50%, #8195af 51%, #6d84a2 100%);
+            border-bottom: 1px solid #2d3642;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+            position: relative;
+            text-align: center;
+            line-height: 44px;
+            z-index: 10;
+        }
+
+        .navbar-title {
+            color: #fff;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
+            margin: 0;
+            padding: 0 60px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* 顶部导航栏按钮 */
+        .nav-btn {
+            position: absolute;
+            top: 7px;
+            height: 30px;
+            line-height: 30px;
+            padding: 0 12px;
+            color: #fff;
+            font-size: 13px;
+            font-weight: bold;
+            text-decoration: none;
+            text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.6);
+            border: 1px solid #3e5066;
+            border-radius: 5px;
+            background: -webkit-linear-gradient(top, #778ea9 0%, #516d8e 50%, #436184 51%, #2b4b72 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 0 rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+        }
+        .nav-btn.left { left: 5px; }
+        .nav-btn.right { right: 5px; }
+        .nav-btn:active {
+            background: -webkit-linear-gradient(top, #436184 0%, #2b4b72 50%, #2b4b72 51%, #1d334f 100%);
+        }
+
+        /* 主体内容容器 */
+        .content {
+            padding: 15px 10px;
+        }
+
+        /* 表单输入区域 */
+        textarea {
+            width: 100%;
+            height: 180px;
+            box-sizing: border-box;
+            border: 1px solid #ababab;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+            font-family: monospace;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            -webkit-appearance: none;
+            resize: none;
+        }
+
+        /* 大号动作按钮 */
+        .action-btn {
+            display: block;
+            width: 100%;
+            margin-top: 15px;
+            height: 44px;
+            line-height: 44px;
+            text-align: center;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 0 -1px 0 rgba(0, 0, 0, 0.5);
+            border: 1px solid #1c2532;
+            border-radius: 8px;
+            /* 经典 iOS 蓝按钮 */
+            background: -webkit-linear-gradient(top, #6386b8 0%, #2f568e 50%, #1d4580 51%, #15386e 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 1px 2px rgba(0,0,0,0.3);
+            cursor: pointer;
+            -webkit-appearance: none;
+        }
+        .action-btn:active {
+            background: -webkit-linear-gradient(top, #2f568e 0%, #1d4580 50%, #1d4580 51%, #0b2650 100%);
+        }
+        .action-btn.gray {
+            background: -webkit-linear-gradient(top, #f2f2f2 0%, #d4d4d4 50%, #c4c4c4 51%, #b3b3b3 100%);
+            border: 1px solid #999;
+            color: #333;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+        .action-btn.gray:active {
+            background: -webkit-linear-gradient(top, #d4d4d4 0%, #c4c4c4 50%, #b3b3b3 51%, #999999 100%);
+        }
+
+        /* iOS 6 UITableView 圆角列表风格 */
+        .table-view {
+            margin: 0;
+            background: #fff;
+            border: 1px solid #ababab;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            list-style: none;
+            padding: 0;
+        }
+
+        .table-view li {
+            border-bottom: 1px solid #ababab;
+            padding: 12px 15px;
+            font-size: 17px;
+            font-weight: bold;
+            color: #000;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .table-view li:last-child {
+            border-bottom: none;
+        }
+
+        /* 点击选中效果：蓝色高亮 */
+        .table-view li:active {
+            background-color: #015ee6;
+            background-image: -webkit-linear-gradient(top, #0571ff, #015ee6);
+            color: #fff;
+        }
+
+        /* 右侧箭头符号 */
+        .chevron {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            margin-top: -10px;
+            color: #7f7f7f;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .table-view li:active .chevron {
+            color: #fff;
+        }
+
+        /* 播放器区域 */
+        .player-container {
+            background: #000;
+            width: 100%;
+            height: 250px;
+            margin-top: 20px;
+            border: 1px solid #000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        video {
+            width: 100%;
+            height: 100%;
+        }
+        .notice {
+            text-align: center;
+            font-size: 13px;
+            color: #666;
+            margin-top: 20px;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.6);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 视图 1：设置 / 加载 M3U 页面 -->
+    <div id="setupScreen" class="screen active">
+        <div class="navbar">
+            <div class="navbar-title">IPTV 设置</div>
+        </div>
+        <div class="content">
+            <textarea id="m3uInput" placeholder="在此粘贴您的 m3u 直播源文本内容..."></textarea>
+            <div class="action-btn" onclick="loadM3U()">载入频道列表</div>
+            <div class="action-btn gray" onclick="loadDemo()">加载演示测试源</div>
+        </div>
+    </div>
+
+    <!-- 视图 2：频道列表页面 -->
+    <div id="listScreen" class="screen">
+        <div class="navbar">
+            <div class="nav-btn left" onclick="showScreen('setupScreen')">返回</div>
+            <div class="navbar-title">频道列表</div>
+        </div>
+        <div class="content">
+            <ul class="table-view" id="channelList">
+                <!-- 列表项将由 JavaScript 动态生成 -->
+            </ul>
+        </div>
+    </div>
+
+    <!-- 视图 3：播放器页面 -->
+    <div id="playerScreen" class="screen">
+        <div class="navbar">
+            <div class="nav-btn left" onclick="stopPlayer()">频道</div>
+            <div class="navbar-title" id="playerTitle">正在加载...</div>
+        </div>
+        <div class="content">
+            <div class="player-container">
+                <!-- iOS Safari 原生支持播放 .m3u8 格式，无需额外 JS 插件 -->
+                <video id="videoPlayer" controls></video>
+            </div>
+            <p class="notice">提示：在 iOS 设备上点击播放器将自动进入全屏播放模式。</p>
+        </div>
+    </div>
+
+    <script>
+        // 严格使用 ES5 语法以保证在 iOS 6 Safari 运行
+        var currentChannels = [];
+
+        // 初始化
+        window.onload = function() {
+            var savedM3u = localStorage.getItem('ios6_iptv_m3u');
+            if (savedM3u) {
+                document.getElementById('m3uInput').value = savedM3u;
+            }
+        };
+
+        // 视图切换逻辑
+        function showScreen(screenId) {
+            var screens = document.querySelectorAll('.screen');
+            for (var i = 0; i < screens.length; i++) {
+                screens[i].className = 'screen';
+            }
+            document.getElementById(screenId).className = 'screen active';
+        }
+
+        // 解析 M3U 数据（简易解析器）
+        function parseM3U(data) {
+            var lines = data.split('\n');
+            var channels = [];
+            var currentChannel = null;
+
+            for (var i = 0; i < lines.length; i++) {
+                // 替换前后空格 (老浏览器没有 trim())
+                var line = lines[i].replace(/^\s+|\s+$/g, ''); 
+                
+                if (line.indexOf('#EXTINF:') === 0) {
+                    var commaIndex = line.indexOf(',');
+                    var name = line.substring(commaIndex + 1) || '未命名频道';
+                    currentChannel = { name: name, url: '' };
+                } else if ((line.indexOf('http://') === 0 || line.indexOf('https://') === 0) && currentChannel) {
+                    currentChannel.url = line;
+                    channels.push(currentChannel);
+                    currentChannel = null; // 重置
+                }
+            }
+            return channels;
+        }
+
+        // 加载并渲染列表
+        function loadM3U() {
+            var data = document.getElementById('m3uInput').value;
+            if (!data) {
+                alert('请粘贴 M3U 播放列表内容！');
+                return;
+            }
+            
+            // 存入本地缓存，下次打开直接读取
+            try {
+                localStorage.setItem('ios6_iptv_m3u', data);
+            } catch(e) {}
+            
+            currentChannels = parseM3U(data);
+            
+            if (currentChannels.length === 0) {
+                alert('未解析到任何频道，请检查格式是否正确。');
+                return;
+            }
+
+            renderChannels();
+            showScreen('listScreen');
+        }
+
+        // 渲染 iOS 风格的 Table View
+        function renderChannels() {
+            var listElem = document.getElementById('channelList');
+            listElem.innerHTML = ''; // 清空列表
+            
+            for (var i = 0; i < currentChannels.length; i++) {
+                var channel = currentChannels[i];
+                var li = document.createElement('li');
+                
+                li.innerHTML = channel.name + '<span class="chevron">〉</span>';
+                
+                // 使用闭包保存变量状态，避免 ES5 经典的 for 循环作用域陷阱
+                (function(ch) {
+                    li.onclick = function() {
+                        playChannel(ch);
+                    };
+                })(channel);
+                
+                listElem.appendChild(li);
+            }
+        }
+
+        // 播放指定的频道
+        function playChannel(channel) {
+            document.getElementById('playerTitle').innerHTML = channel.name;
+            var video = document.getElementById('videoPlayer');
+            
+            // 清理旧资源并加载新资源
+            video.src = channel.url;
+            video.load();
+            
+            showScreen('playerScreen');
+            
+            // 尝试自动播放（在某些 iOS 版本中需要用户交互才能播放，由于这是在 onclick 内触发的，通常可以成功）
+            try {
+                video.play();
+            } catch(e) {}
+        }
+
+        // 停止播放并返回列表
+        function stopPlayer() {
+            var video = document.getElementById('videoPlayer');
+            video.pause();
+            video.src = ''; 
+            showScreen('listScreen');
+        }
+
+        // 加载测试数据 (CCTV 测试源)
+        function loadDemo() {
+            var demoText = "#EXTM3U\n" +
+                "#EXTINF:-1,CCTV-1 综合\n" +
+                "http://cctvalih5ca.v.myalicdn.com/live/cctv1_2/index.m3u8\n" +
+                "#EXTINF:-1,CCTV-13 新闻\n" +
+                "http://cctvalih5ca.v.myalicdn.com/live/cctv13_2/index.m3u8\n" +
+                "#EXTINF:-1,CGTN\n" +
+                "http://cctvalih5ca.v.myalicdn.com/live/cctvnews_2/index.m3u8\n" +
+                "#EXTINF:-1,测试用大本钟直播(境外)\n" +
+                "https://skynews-eu.rakuten.amagi.tv/playlist.m3u8";
+            document.getElementById('m3uInput').value = demoText;
+        }
+    </script>
+</body>
+</html>
