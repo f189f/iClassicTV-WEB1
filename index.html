@@ -26,6 +26,7 @@
             background-color: #000; /* 切换时的底层黑色背景 */
             -webkit-text-size-adjust: none;
             -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent; /* 消除原生点击时的灰色方块闪烁，完全交给咱们的高亮样式 */
         }
 
         /* 页面容器基础属性 */
@@ -249,6 +250,16 @@
             cursor: default;
         }
         .table-view li:first-child.table-group-header { border-top: none; }
+
+        /* 新增：单独为列表的首尾项设置内部圆角，完美解决点击高亮时直角溢出的Bug */
+        .table-view li:first-child {
+            border-top-left-radius: 7px;
+            border-top-right-radius: 7px;
+        }
+        .table-view li:last-child {
+            border-bottom-left-radius: 7px;
+            border-bottom-right-radius: 7px;
+        }
 
         .table-view li.group-item {
             border-bottom: 1px solid #ababab;
@@ -653,6 +664,48 @@
         
         // 新增：记录当前 Tab 索引，用于判断滑动方向
         window.currentTabIndex = 0; 
+
+        // ==========================================
+        // 核心优化：彻底消除 iOS 6 经典的 300ms 点击延迟
+        // ==========================================
+        if ('ontouchstart' in window) {
+            var touchStartX = 0, touchStartY = 0, touchMoved = false;
+            
+            document.addEventListener('touchstart', function(e) {
+                touchStartX = e.touches[0].clientX;
+                touchStartY = e.touches[0].clientY;
+                touchMoved = false;
+            }, false);
+
+            document.addEventListener('touchmove', function(e) {
+                // 如果滑动距离超过10像素，说明用户在上下滚动列表，取消瞬发点击
+                if (Math.abs(e.touches[0].clientX - touchStartX) > 10 || 
+                    Math.abs(e.touches[0].clientY - touchStartY) > 10) {
+                    touchMoved = true;
+                }
+            }, false);
+
+            document.addEventListener('touchend', function(e) {
+                if (touchMoved) return;
+                
+                var target = e.target;
+                if (target.nodeType === 3) target = target.parentNode; // 兼容老 WebKit 的文本节点 Bug
+                
+                // 放行原生需要独立响应点击的标签，确保输入框和视频能正常工作
+                var tagName = target.tagName;
+                if (tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT' || tagName === 'VIDEO') {
+                    return;
+                }
+                
+                // 拦截系统 300ms 后的默认 Click 触发
+                e.preventDefault(); 
+                
+                // 立即手动触发 Click 事件，达到“零延迟”极速响应
+                var clickEvent = document.createEvent('MouseEvents');
+                clickEvent.initMouseEvent('click', true, true, window, 1, 0, 0, 0, 0, false, false, false, false, 0, null);
+                target.dispatchEvent(clickEvent);
+            }, false);
+        }
 
         window.onload = function() {
             var savedM3u = localStorage.getItem('ios6_iptv_m3u');
