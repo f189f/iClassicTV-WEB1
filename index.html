@@ -110,7 +110,7 @@
             background: -webkit-linear-gradient(top, #436184 0%, #2b4b72 50%, #2b4b72 51%, #1d334f 100%);
         }
 
-        /* 重点：纯 CSS 还原 iOS 6 经典尖角后退按钮 */
+        /* 纯 CSS 还原 iOS 6 经典尖角后退按钮 */
         .nav-btn.back {
             padding-left: 6px;
             margin-left: 10px;
@@ -125,14 +125,11 @@
             left: -11px;
             width: 22px;
             height: 22px;
-            /* 修正了渐变色值与主按钮完全一致，并通过 top right 完美抵消旋转角度 */
             background: -webkit-linear-gradient(top right, #778ea9 0%, #516d8e 50%, #436184 51%, #2b4b72 100%);
             border-top: 1px solid #3e5066;
             border-left: 1px solid #3e5066;
-            /* 旋转45度并稍微压扁形成完美尖角 */
             -webkit-transform: scaleX(0.8) rotate(-45deg);
             -webkit-border-radius: 3px 0 0 0;
-            /* 修正顶部高光阴影，使其与主按钮高光完美融合 */
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
             z-index: -1;
         }
@@ -282,6 +279,24 @@
             cursor: pointer;
             min-height: 30px;
         }
+        /* 当项作为纯文字选项(如线路选择)时，取消左侧Logo缩进 */
+        .table-view li.item.text-only {
+            padding-left: 15px;
+        }
+        /* 激活选中的线路项样式 */
+        .table-view li.item.source-active {
+            color: #3b88d4;
+        }
+        .table-view li.item.source-active::after {
+            content: '✓';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            margin-top: -10px;
+            color: #3b88d4;
+            font-weight: bold;
+            font-size: 16px;
+        }
         .table-view li.item:last-child { border-bottom: none; }
         .table-view li.item:active {
             background-color: #015ee6;
@@ -326,7 +341,7 @@
             background: #000;
             width: 100%;
             height: 250px;
-            margin-top: 20px;
+            margin-top: 10px;
             border: 1px solid #000;
             box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         }
@@ -335,7 +350,7 @@
             text-align: center;
             font-size: 13px;
             color: #666;
-            margin-top: 20px;
+            margin-top: 15px;
             text-shadow: 0 1px 0 rgba(255,255,255,0.6);
         }
 
@@ -443,7 +458,13 @@
             <div class="player-container">
                 <video id="videoPlayer" controls></video>
             </div>
-            <p class="notice">提示：在 iOS 设备上点击播放器将自动进入全屏播放模式。</p>
+            
+            <!-- 多线路源选择控件 -->
+            <div class="section-title" id="sourceTitle" style="display:none; margin-top: 20px;">选择线路</div>
+            <ul class="table-view" id="sourceList" style="display:none; margin-top: 5px;">
+            </ul>
+            
+            <p class="notice">提示：在 iOS 设备上点击视频将自动全屏播放。</p>
         </div>
     </div>
 
@@ -455,8 +476,8 @@
         </div>
         <div class="content">
             <ul class="table-view">
-                <li class="item" onclick="clearCache()">清除本地频道缓存 <span class="chevron">〉</span></li>
-                <li class="item" onclick="alert('iOS6 兼容模式已强制开启。')">兼容模式 <span style="position:absolute; right:15px; color:#3b88d4;">开启</span></li>
+                <li class="item text-only" onclick="clearCache()">清除本地频道缓存 <span class="chevron">〉</span></li>
+                <li class="item text-only" onclick="alert('iOS6 兼容模式已强制开启。')">兼容模式 <span style="position:absolute; right:15px; color:#3b88d4;">开启</span></li>
             </ul>
         </div>
     </div>
@@ -470,9 +491,9 @@
         <div class="content">
             <div class="about-text">
                 <h2>iClassicTV</h2>
-                <p style="font-size: 14px;">版本 2.0 (Skeuomorphism)</p>
+                <p style="font-size: 14px;">版本 3.0 (Skeuomorphism)</p>
                 <p style="font-size: 14px; padding: 0 20px; margin-top:20px; color: #666;">
-                    加入硬件加速的页面滑动动画。<br>
+                    加入同名频道智能多源合并。<br>
                     纯手工 CSS 绘制经典后退尖角按钮。<br><br>
                     极致复原，致敬经典。
                 </p>
@@ -507,7 +528,6 @@
             }
         };
 
-        // Tab栏切换 (无滑动动画，瞬间切换)
         function switchTab(screenId, tabIndex) {
             var tabs = document.querySelectorAll('.tab-item');
             for (var i = 0; i < tabs.length; i++) {
@@ -517,14 +537,12 @@
             showScreen(screenId); 
         }
 
-        // 核心：带有硬件加速滑动动画的屏幕切换器
         function showScreen(screenId, animationType) {
             var current = document.querySelector('.screen.active');
             var target = document.getElementById(screenId);
             
             if (current === target) return;
 
-            // 底部 TabBar 显示逻辑
             var tabBar = document.getElementById('tabBar');
             if (screenId === 'listScreen' || screenId === 'setupScreen' || screenId === 'channelListScreen') {
                 tabBar.style.display = 'block';
@@ -532,35 +550,29 @@
                 tabBar.style.display = 'none';
             }
 
-            // 执行动画逻辑
             if (!current || !animationType) {
-                // 初次加载或底部 Tab 切换 (无动画)
                 var screens = document.querySelectorAll('.screen');
                 for (var i = 0; i < screens.length; i++) {
                     screens[i].className = 'screen';
                 }
                 target.className = 'screen active';
             } else if (animationType === 'forward') {
-                // 页面前进：当前页向左滑出 (-30%)，新页面从右侧(100%)滑入
                 target.className = 'screen right';
-                var dummy = target.offsetHeight; // 强制浏览器回流重绘
+                var dummy = target.offsetHeight; 
                 current.className = 'screen left transition';
                 target.className = 'screen active transition';
                 
-                // 动画结束后清理旧页面状态
                 setTimeout(function(){
                     if(current.className.indexOf('left') !== -1) {
                         current.className = 'screen';
                     }
                 }, 350);
             } else if (animationType === 'backward') {
-                // 页面后退：当前页向右滑出 (100%)，旧页面从左侧(-30%)滑回
                 target.className = 'screen left';
-                var dummy = target.offsetHeight; // 强制浏览器回流重绘
+                var dummy = target.offsetHeight; 
                 current.className = 'screen right transition';
                 target.className = 'screen active transition';
                 
-                // 动画结束后清理旧页面状态
                 setTimeout(function(){
                     if(current.className.indexOf('right') !== -1) {
                         current.className = 'screen';
@@ -581,17 +593,19 @@
             return null;
         }
 
+        // 修改：核心解析逻辑支持相同频道合并
         function parseM3U(data) {
             var lines = data.split('\n');
             var channels = [];
-            var currentChannel = null;
+            var channelsMap = {}; // 用哈希表记录已存在频道的索引
+            var currentChannelParams = null;
 
             for (var i = 0; i < lines.length; i++) {
                 var line = lines[i].replace(/^\s+|\s+$/g, ''); 
                 
                 if (line.indexOf('#EXTINF:') === 0) {
                     var name = '未命名频道';
-                    var logo = extractAttr(line, 'tvg-logo') || '';
+                    var logo = extractAttr(line, 'tvg-logo') || extractAttr(line, 'logo') || '';
                     var group = extractAttr(line, 'group-title') || '未分组';
                     
                     var commaIndex = line.lastIndexOf(',');
@@ -599,11 +613,34 @@
                         name = line.substring(commaIndex + 1).replace(/^\s+|\s+$/g, '');
                     }
 
-                    currentChannel = { name: name, logo: logo, group: group, url: '' };
-                } else if ((line.indexOf('http://') === 0 || line.indexOf('https://') === 0) && currentChannel) {
-                    currentChannel.url = line;
-                    channels.push(currentChannel);
-                    currentChannel = null;
+                    // 暂存频道属性，等待下一行的 URL
+                    currentChannelParams = { name: name, logo: logo, group: group };
+                } 
+                else if ((line.indexOf('http://') === 0 || line.indexOf('https://') === 0) && currentChannelParams) {
+                    // 以 分组名 + 频道名 组成唯一联合主键进行同源合并
+                    var uniqueKey = currentChannelParams.group + "|||" + currentChannelParams.name;
+                    
+                    if (!channelsMap.hasOwnProperty(uniqueKey)) {
+                        // 这是一个新频道，创建包含 URLs 数组的对象
+                        var newChannel = {
+                            name: currentChannelParams.name,
+                            logo: currentChannelParams.logo,
+                            group: currentChannelParams.group,
+                            urls: [line] // 注意这里变为了数组
+                        };
+                        channels.push(newChannel);
+                        channelsMap[uniqueKey] = newChannel;
+                    } else {
+                        // 这是一个已经存在的频道，将其地址加入备用源数组
+                        channelsMap[uniqueKey].urls.push(line);
+                        
+                        // 选填项优化：如果之前的源没有提取到 Logo，但当前源有，就自动补充上
+                        if (!channelsMap[uniqueKey].logo && currentChannelParams.logo) {
+                            channelsMap[uniqueKey].logo = currentChannelParams.logo;
+                        }
+                    }
+                    
+                    currentChannelParams = null; // 重置等待下一个频道
                 }
             }
             return channels;
@@ -731,14 +768,18 @@
                     li.className = 'item';
                     
                     var logoSrc = channel.logo ? channel.logo : defaultLogo;
+                    
+                    // 如果存在多个源，在频道名称旁边温馨提示包含多少个源
+                    var multiSourceBadge = channel.urls.length > 1 ? '<span style="font-size:12px; color:#888; font-weight:normal; margin-left: 5px;">[' + channel.urls.length + ' 源]</span>' : '';
 
                     li.innerHTML = '<img class="channel-logo" src="' + logoSrc + '" onerror="this.src=\'' + defaultLogo + '\'" />' +
-                                   '<span class="channel-name">' + channel.name + '</span>' +
+                                   '<span class="channel-name">' + channel.name + multiSourceBadge + '</span>' +
                                    '<span class="chevron">〉</span>';
                     
                     (function(ch) {
                         li.onclick = function() {
-                            playChannel(ch);
+                            // 默认播放数组里的第一个源 (索引为 0)
+                            playChannel(ch, 0);
                         };
                     })(channel);
                     
@@ -746,19 +787,60 @@
                 }
             }
             
-            // 触发进入子页面的 forward 动画
             showScreen('channelListScreen', 'forward');
         }
 
-        function playChannel(channel) {
+        // 修改：增加 sourceIndex 参数用于多线路切换
+        function playChannel(channel, sourceIndex) {
+            if (typeof sourceIndex === 'undefined') {
+                sourceIndex = 0;
+            }
+
             document.getElementById('playerTitle').innerHTML = channel.name;
             var video = document.getElementById('videoPlayer');
             
-            video.src = channel.url;
+            // 切换视频源
+            video.src = channel.urls[sourceIndex];
             video.load();
             
-            // 触发进入播放器的 forward 动画
-            showScreen('playerScreen', 'forward');
+            // 渲染多源选择器列表
+            var sourceList = document.getElementById('sourceList');
+            var sourceTitle = document.getElementById('sourceTitle');
+            
+            if (channel.urls.length > 1) {
+                sourceTitle.style.display = 'block';
+                sourceList.style.display = 'block';
+                sourceList.innerHTML = ''; // 清空重新生成
+                
+                for (var i = 0; i < channel.urls.length; i++) {
+                    var li = document.createElement('li');
+                    
+                    // 利用 text-only 去除 Logo 带来的缩进，并且加上 active 类来实现打勾变蓝效果
+                    var activeClass = (i === sourceIndex) ? ' source-active' : '';
+                    li.className = 'item text-only' + activeClass;
+                    
+                    li.innerHTML = '线路 ' + (i + 1);
+                    
+                    // 点击切换线路时无须发生页面动画跳转
+                    (function(ch, idx) {
+                        li.onclick = function() {
+                            playChannel(ch, idx);
+                        };
+                    })(channel, i);
+                    
+                    sourceList.appendChild(li);
+                }
+            } else {
+                // 如果只有一个源，则隐藏源切换列表
+                sourceTitle.style.display = 'none';
+                sourceList.style.display = 'none';
+            }
+
+            // 防止在同频道切换线路时触发左右滑动动画
+            var currentActiveScreen = document.querySelector('.screen.active').id;
+            if (currentActiveScreen !== 'playerScreen') {
+                showScreen('playerScreen', 'forward');
+            }
             
             try { video.play(); } catch(e) {}
         }
@@ -767,20 +849,20 @@
             var video = document.getElementById('videoPlayer');
             video.pause();
             video.src = ''; 
-            // 触发退出播放器的 backward 动画
             showScreen('channelListScreen', 'backward');
         }
 
+        // 更新演示源：为你准备了带有多个同名源的合并测试用例
         function loadDemo() {
             var demoText = "#EXTM3U\n" +
-                "#EXTINF:-1 tvg-logo=\"https://epg.112114.xyz/logo/CCTV1.png\" group-title=\"央视\",CCTV-1 综合\n" +
+                "#EXTINF:-1 tvg-logo=\"https://epg.112114.xyz/logo/CCTV1.png\" group-title=\"央视合并测试\",CCTV-1 综合\n" +
                 "http://cctvalih5ca.v.myalicdn.com/live/cctv1_2/index.m3u8\n" +
-                "#EXTINF:-1 tvg-logo=\"https://epg.112114.xyz/logo/CCTV13.png\" group-title=\"央视\",CCTV-13 新闻\n" +
+                "#EXTINF:-1 tvg-logo=\"https://epg.112114.xyz/logo/CCTV1.png\" group-title=\"央视合并测试\",CCTV-1 综合\n" +
+                "http://111.63.117.15:6060/030000001000/CCTV-1/CCTV-1.m3u8\n" +
+                "#EXTINF:-1 tvg-logo=\"https://epg.112114.xyz/logo/CCTV13.png\" group-title=\"央视合并测试\",CCTV-13 新闻\n" +
                 "http://cctvalih5ca.v.myalicdn.com/live/cctv13_2/index.m3u8\n" +
-                "#EXTINF:-1 group-title=\"国际新闻\",CGTN (无 Logo)\n" +
-                "http://cctvalih5ca.v.myalicdn.com/live/cctvnews_2/index.m3u8\n" +
-                "#EXTINF:-1,测试大本钟直播(未分组无Logo)\n" +
-                "https://skynews-eu.rakuten.amagi.tv/playlist.m3u8";
+                "#EXTINF:-1 group-title=\"国际新闻\",CGTN (单线路)\n" +
+                "http://cctvalih5ca.v.myalicdn.com/live/cctvnews_2/index.m3u8";
             document.getElementById('m3uInput').value = demoText;
         }
 
