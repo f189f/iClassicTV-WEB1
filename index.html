@@ -346,6 +346,41 @@
             color: #fff;
         }
 
+        /* 原生 Select 下拉菜单包装器 (iOS 6 风格) */
+        .source-selector-wrapper {
+            margin: 5px 0 0 0;
+            background: #fff;
+            border: 1px solid #ababab;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .source-selector-wrapper::after {
+            content: '▼';
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            margin-top: -10px;
+            color: #3b88d4; /* 经典 iOS 蓝 */
+            font-size: 14px;
+            pointer-events: none; /* 让点击事件穿透到下方的 select */
+        }
+        .source-select {
+            width: 100%;
+            height: 44px;
+            -webkit-box-sizing: border-box;
+            box-sizing: border-box;
+            padding: 0 15px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #000;
+            border: none;
+            background: transparent;
+            -webkit-appearance: none;
+            border-radius: 0;
+        }
+
         .channel-logo {
             position: absolute;
             left: 10px;
@@ -501,10 +536,11 @@
                 <video id="videoPlayer" controls></video>
             </div>
             
-            <!-- 多线路源选择控件 -->
+            <!-- 多线路源选择控件 (已优化为原生下拉框) -->
             <div class="section-title" id="sourceTitle" style="display:none; margin-top: 20px;">选择线路</div>
-            <ul class="table-view" id="sourceList" style="display:none; margin-top: 5px;">
-            </ul>
+            <div class="source-selector-wrapper" id="sourceSelectorWrapper" style="display:none;">
+                <select class="source-select" id="sourceSelect" onchange="changeSource()"></select>
+            </div>
             
             <p class="notice">提示：在 iOS 设备上点击视频将自动全屏播放。</p>
         </div>
@@ -558,6 +594,7 @@
     <script>
         // 严格使用 ES5 语法以保证在 iOS 6 Safari 运行
         var currentChannels = [];
+        var currentPlayingChannel = null; // 新增：记录当前正在播放的频道对象
 
         window.onload = function() {
             var savedM3u = localStorage.getItem('ios6_iptv_m3u');
@@ -832,12 +869,13 @@
             showScreen('channelListScreen', 'forward');
         }
 
-        // 修改：增加 sourceIndex 参数用于多线路切换
+        // 修改：增加 sourceIndex 参数用于多线路切换，并重构多源下拉框渲染逻辑
         function playChannel(channel, sourceIndex) {
             if (typeof sourceIndex === 'undefined') {
                 sourceIndex = 0;
             }
 
+            currentPlayingChannel = channel; // 记录当前频道，为下拉切换做准备
             document.getElementById('playerTitle').innerHTML = channel.name;
             var video = document.getElementById('videoPlayer');
             
@@ -845,37 +883,29 @@
             video.src = channel.urls[sourceIndex];
             video.load();
             
-            // 渲染多源选择器列表
-            var sourceList = document.getElementById('sourceList');
+            // 渲染多源选择器列表 (原生下拉选框)
+            var sourceSelectorWrapper = document.getElementById('sourceSelectorWrapper');
+            var sourceSelect = document.getElementById('sourceSelect');
             var sourceTitle = document.getElementById('sourceTitle');
             
             if (channel.urls.length > 1) {
                 sourceTitle.style.display = 'block';
-                sourceList.style.display = 'block';
-                sourceList.innerHTML = ''; // 清空重新生成
+                sourceSelectorWrapper.style.display = 'block';
+                sourceSelect.innerHTML = ''; // 清空重新生成
                 
                 for (var i = 0; i < channel.urls.length; i++) {
-                    var li = document.createElement('li');
-                    
-                    // 利用 text-only 去除 Logo 带来的缩进，并且加上 active 类来实现打勾变蓝效果
-                    var activeClass = (i === sourceIndex) ? ' source-active' : '';
-                    li.className = 'item text-only' + activeClass;
-                    
-                    li.innerHTML = '线路 ' + (i + 1);
-                    
-                    // 点击切换线路时无须发生页面动画跳转
-                    (function(ch, idx) {
-                        li.onclick = function() {
-                            playChannel(ch, idx);
-                        };
-                    })(channel, i);
-                    
-                    sourceList.appendChild(li);
+                    var option = document.createElement('option');
+                    option.value = i;
+                    option.text = '线路 ' + (i + 1);
+                    if (i === sourceIndex) {
+                        option.selected = true;
+                    }
+                    sourceSelect.appendChild(option);
                 }
             } else {
                 // 如果只有一个源，则隐藏源切换列表
                 sourceTitle.style.display = 'none';
-                sourceList.style.display = 'none';
+                sourceSelectorWrapper.style.display = 'none';
             }
 
             // 防止在同频道切换线路时触发左右滑动动画
@@ -885,6 +915,15 @@
             }
             
             try { video.play(); } catch(e) {}
+        }
+
+        // 新增：下拉框值改变时，触发线路无缝切换
+        function changeSource() {
+            var select = document.getElementById('sourceSelect');
+            var idx = parseInt(select.value, 10);
+            if (currentPlayingChannel) {
+                playChannel(currentPlayingChannel, idx);
+            }
         }
 
         function stopPlayer() {
