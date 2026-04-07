@@ -449,8 +449,16 @@
             border-top: 1px solid #000;
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
             z-index: 200;
-            display: block;
+            /* 加入平滑过渡动画，贝塞尔曲线与页面滑动保持完全一致 */
+            -webkit-transition: -webkit-transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            -webkit-transform: translateY(0);
         }
+        /* 隐藏 Tab 栏时，使其向下平滑移出屏幕 */
+        .tab-bar.hidden {
+            -webkit-transform: translateY(100%);
+            pointer-events: none; /* 防止隐藏状态下被误触 */
+        }
+        
         .tab-item {
             float: left;
             width: 50%;
@@ -522,7 +530,8 @@
     <!-- 视图 1：频道列表页面 (首页) -->
     <div id="listScreen" class="screen active">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('settingsScreen', 'forward')">设置</div>
+            <!-- 修复：将 forward 改为 backward，使其从左侧滑入 -->
+            <div class="nav-btn left" onclick="showScreen('settingsScreen', 'backward')">设置</div>
             <div class="navbar-title">频道分组</div>
             <div class="nav-btn right" onclick="showScreen('aboutScreen', 'forward')">关于</div>
         </div>
@@ -536,7 +545,6 @@
     <!-- 视图 1.5：具体频道的二级列表页面 -->
     <div id="channelListScreen" class="screen">
         <div class="navbar">
-            <!-- 经典的 iOS 6 尖角后退按钮 -->
             <div class="nav-btn left back" onclick="showScreen('listScreen', 'backward')">分组</div>
             <div class="navbar-title" id="groupTitle">加载中...</div>
         </div>
@@ -575,7 +583,6 @@
                 <video id="videoPlayer" controls></video>
             </div>
             
-            <!-- 多线路源选择控件 (已优化为原生下拉框) -->
             <div class="section-title" id="sourceTitle" style="display:none; margin-top: 20px;">选择线路</div>
             <div class="source-selector-wrapper" id="sourceSelectorWrapper" style="display:none;">
                 <select class="source-select" id="sourceSelect" onchange="changeSource()"></select>
@@ -588,7 +595,8 @@
     <!-- 视图 4：设置页面 -->
     <div id="settingsScreen" class="screen">
         <div class="navbar">
-            <div class="nav-btn left" onclick="showScreen('listScreen', 'backward')">完成</div>
+            <!-- 修复：完成退出时，将 backward 改为 forward，使其平滑向左滑出 -->
+            <div class="nav-btn left" onclick="showScreen('listScreen', 'forward')">完成</div>
             <div class="navbar-title">设置</div>
         </div>
         <div class="content">
@@ -608,10 +616,11 @@
         <div class="content">
             <div class="about-text">
                 <h2>iClassicTV</h2>
-                <p style="font-size: 14px;">版本 3.0 (Skeuomorphism)</p>
+                <p style="font-size: 14px;">版本 3.1 (Skeuomorphism)</p>
                 <p style="font-size: 14px; padding: 0 20px; margin-top:20px; color: #666;">
                     加入同名频道智能多源合并。<br>
-                    纯手工 CSS 绘制经典后退尖角按钮。<br><br>
+                    纯手工 CSS 绘制经典后退尖角按钮。<br>
+                    全景支持空间方位滑动路由。<br><br>
                     极致复原，致敬经典。
                 </p>
             </div>
@@ -641,6 +650,9 @@
         // 严格使用 ES5 语法以保证在 iOS 6 Safari 运行
         var currentChannels = [];
         var currentPlayingChannel = null; 
+        
+        // 新增：记录当前 Tab 索引，用于判断滑动方向
+        window.currentTabIndex = 0; 
 
         window.onload = function() {
             var savedM3u = localStorage.getItem('ios6_iptv_m3u');
@@ -673,7 +685,26 @@
                 tabs[i].className = 'tab-item';
             }
             tabs[tabIndex].className = 'tab-item active';
-            showScreen(screenId); 
+            
+            var currentActiveScreen = document.querySelector('.screen.active');
+            
+            // 核心修复：增加全局 Tab 方向感知滑动动画
+            if (tabIndex === 0 && currentActiveScreen && currentActiveScreen.id === 'channelListScreen') {
+                // Pop to Root: 如果在“频道”Tab下，且正处于“二级菜单”，再次点击触发向右滑退
+                showScreen(screenId, 'backward');
+            } else if (tabIndex > window.currentTabIndex) {
+                // Tab 索引增加（向右点击），新页面从右边进入
+                showScreen(screenId, 'forward');
+            } else if (tabIndex < window.currentTabIndex) {
+                // Tab 索引减少（向左点击），新页面从左边进入
+                showScreen(screenId, 'backward');
+            } else {
+                // 初始化或未做实际切换时调用
+                showScreen(screenId); 
+            }
+            
+            // 更新索引记录
+            window.currentTabIndex = tabIndex;
         }
 
         function showScreen(screenId, animationType) {
@@ -683,10 +714,11 @@
             if (current === target) return;
 
             var tabBar = document.getElementById('tabBar');
+            // 核心修复：利用 CSS 类来触发平滑动画，而不是瞬间修改 display 属性
             if (screenId === 'listScreen' || screenId === 'setupScreen' || screenId === 'channelListScreen') {
-                tabBar.style.display = 'block';
+                tabBar.className = 'tab-bar';
             } else {
-                tabBar.style.display = 'none';
+                tabBar.className = 'tab-bar hidden';
             }
 
             if (!current || !animationType) {
