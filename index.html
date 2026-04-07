@@ -85,7 +85,7 @@
         /* 表单输入区域 */
         textarea {
             width: 100%;
-            height: 180px;
+            height: 140px;
             box-sizing: border-box;
             border: 1px solid #ababab;
             border-radius: 8px;
@@ -95,6 +95,29 @@
             box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
             -webkit-appearance: none;
             resize: none;
+        }
+
+        /* 单行输入框 */
+        input[type="text"] {
+            width: 100%;
+            height: 40px;
+            box-sizing: border-box;
+            border: 1px solid #ababab;
+            border-radius: 8px;
+            padding: 0 10px;
+            font-size: 15px;
+            box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+            -webkit-appearance: none;
+            margin-bottom: 5px;
+        }
+
+        /* 选项分组标题 */
+        .section-title {
+            font-size: 14px;
+            color: #4c566c;
+            text-shadow: 0 1px 0 rgba(255,255,255,0.8);
+            margin: 15px 0 8px 5px;
+            font-weight: bold;
         }
 
         /* 大号动作按钮 */
@@ -274,9 +297,15 @@
             <div class="navbar-title">导入直播源</div>
         </div>
         <div class="content has-tab">
+            <div class="section-title" style="margin-top: 5px;">方式一：网络导入</div>
+            <input type="text" id="m3uUrlInput" placeholder="输入 M3U 网址 (http://...)" />
+            <div class="action-btn" id="btnLoadRemote" onclick="loadRemoteM3U()">下载并载入</div>
+
+            <div class="section-title" style="margin-top: 20px;">方式二：手动输入</div>
             <textarea id="m3uInput" placeholder="在此粘贴您的 m3u 直播源文本内容..."></textarea>
-            <div class="action-btn" onclick="loadM3U()">载入并保存</div>
-            <div class="action-btn gray" onclick="loadDemo()">加载演示测试源</div>
+            <div class="action-btn" onclick="loadM3U()">载入上方文本</div>
+
+            <div class="action-btn gray" style="margin-top:25px;" onclick="loadDemo()">加载演示测试源</div>
         </div>
     </div>
 
@@ -404,14 +433,8 @@
             return channels;
         }
 
-        // 加载并渲染列表
-        function loadM3U() {
-            var data = document.getElementById('m3uInput').value;
-            if (!data) {
-                alert('请粘贴 M3U 播放列表内容！');
-                return;
-            }
-            
+        // 处理并保存数据 (提取公共逻辑)
+        function processAndSaveM3U(data) {
             // 存入本地缓存，下次打开直接读取
             try {
                 localStorage.setItem('ios6_iptv_m3u', data);
@@ -426,6 +449,59 @@
 
             renderChannels();
             switchTab('listScreen', 0); // 解析完毕自动跳转并激活第一个 Tab
+        }
+
+        // 加载远程 M3U 数据
+        function loadRemoteM3U() {
+            var url = document.getElementById('m3uUrlInput').value.replace(/^\s+|\s+$/g, '');
+            if (!url) {
+                alert('请输入有效的直播源网址！');
+                return;
+            }
+
+            var btn = document.getElementById('btnLoadRemote');
+            var originalText = btn.innerHTML;
+            btn.innerHTML = '正在下载...';
+
+            // 使用 XMLHttpRequest 兼容老设备
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', url, true);
+            
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    btn.innerHTML = originalText;
+                    if (xhr.status === 200 || xhr.status === 304) {
+                        var data = xhr.responseText;
+                        // 同步文本到输入框，方便用户查看
+                        document.getElementById('m3uInput').value = data; 
+                        processAndSaveM3U(data);
+                    } else {
+                        alert('网络请求失败 (状态码: ' + xhr.status + ')。这通常是因为该网址无效，或者该服务器不允许跨域访问 (CORS)。');
+                    }
+                }
+            };
+            
+            xhr.onerror = function() {
+                btn.innerHTML = originalText;
+                alert('网络连接失败。请检查网址是否正确，或者您的网络环境是否受限。');
+            };
+
+            try {
+                xhr.send();
+            } catch(e) {
+                btn.innerHTML = originalText;
+                alert('请求出错: ' + e.message);
+            }
+        }
+
+        // 加载文本框 M3U 数据
+        function loadM3U() {
+            var data = document.getElementById('m3uInput').value;
+            if (!data) {
+                alert('请粘贴 M3U 播放列表内容！');
+                return;
+            }
+            processAndSaveM3U(data);
         }
 
         // 渲染 iOS 风格的 Table View
@@ -493,6 +569,7 @@
         function clearCache() {
             localStorage.removeItem('ios6_iptv_m3u');
             currentChannels = [];
+            document.getElementById('m3uUrlInput').value = '';
             document.getElementById('m3uInput').value = '';
             document.getElementById('channelList').innerHTML = '<li style="text-align:center; color:#666; font-weight:normal;">列表为空，请在"导入"栏添加源</li>';
             alert('本地频道缓存已清除！');
